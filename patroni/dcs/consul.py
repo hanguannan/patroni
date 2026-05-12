@@ -19,6 +19,7 @@ from urllib3.exceptions import HTTPError
 from ..exceptions import DCSError
 from ..postgresql.misc import PostgresqlRole, PostgresqlState
 from ..postgresql.mpp import AbstractMPP
+from ..time_utils import get_monotonic_time
 from ..utils import deep_compare, parse_bool, Retry, RetryFailedError, split_host_port, uri, USER_AGENT
 from . import AbstractDCS, catch_return_false_exception, Cluster, ClusterConfig, \
     Failover, Leader, Member, ReturnFalseException, Status, SyncState, TimelineHistory
@@ -340,7 +341,7 @@ class Consul(AbstractDCS):
 
     def _do_refresh_session(self, force: bool = False) -> bool:
         """:returns: `!True` if it had to create new session"""
-        if not force and self._session and self._last_session_refresh + self._loop_wait > time.time():
+        if not force and self._session and self._last_session_refresh + self._loop_wait > get_monotonic_time():
             return False
 
         if self._session:
@@ -359,7 +360,7 @@ class Consul(AbstractDCS):
                 self.adjust_ttl()
                 raise
 
-        self._last_session_refresh = time.time()
+        self._last_session_refresh = get_monotonic_time()
         return ret
 
     def refresh_session(self) -> bool:
@@ -700,7 +701,7 @@ class Consul(AbstractDCS):
             return True
 
         if leader_version:
-            end_time = time.time() + timeout
+            end_time = get_monotonic_time() + timeout
             while timeout >= 1:
                 try:
                     idx, _ = self._client.kv.get(self.leader_path, index=leader_version, wait=str(timeout) + 's')
@@ -708,7 +709,7 @@ class Consul(AbstractDCS):
                 except (ConsulException, HTTPException, HTTPError, socket.error, socket.timeout):
                     logger.exception('watch')
 
-                timeout = end_time - time.time()
+                timeout = end_time - get_monotonic_time()
 
         try:
             return super(Consul, self).watch(None, timeout)

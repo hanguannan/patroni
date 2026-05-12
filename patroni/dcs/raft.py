@@ -15,6 +15,7 @@ from pysyncobj.utility import TcpUtility
 
 from ..exceptions import DCSError
 from ..postgresql.mpp import AbstractMPP
+from ..time_utils import get_monotonic_time
 from ..utils import validate_directory
 from . import AbstractDCS, Cluster, ClusterConfig, Failover, Leader, Member, Status, SyncState, TimelineHistory
 
@@ -160,7 +161,7 @@ class KVStoreTTL(DynMemberSyncObj):
 
         kwargs['callback'] = callback
         timeout = kwargs.pop('timeout', None) or self.__retry_timeout
-        deadline = timeout and time.time() + timeout
+        deadline = timeout and get_monotonic_time() + timeout
 
         while True:
             event.clear()
@@ -171,7 +172,7 @@ class KVStoreTTL(DynMemberSyncObj):
             elif ret['error'] == FAIL_REASON.REQUEST_DENIED:
                 break
             elif deadline:
-                timeout = deadline - time.time()
+                timeout = deadline - get_monotonic_time()
                 if timeout <= 0:
                     raise RaftError('timeout')
             time.sleep(1)
@@ -198,7 +199,7 @@ class KVStoreTTL(DynMemberSyncObj):
         if not self.__check_requirements(old_value, **kwargs):
             return False
 
-        data: Dict[str, Any] = {'value': value, 'updated': time.time()}
+        data: Dict[str, Any] = {'value': value, 'updated': get_monotonic_time()}
         data['created'] = old_value.get('created', data['updated'])
         if ttl:
             data['expire'] = data['updated'] + ttl
@@ -246,7 +247,7 @@ class KVStoreTTL(DynMemberSyncObj):
 
     def __expire_keys(self) -> None:
         for key, value in self.__data.items():
-            if value and 'expire' in value and value['expire'] <= time.time() and \
+            if value and 'expire' in value and value['expire'] <= get_monotonic_time() and \
                     not (key in self.__limb and self.__values_match(self.__limb[key], value)):
                 self.__limb[key] = value
 

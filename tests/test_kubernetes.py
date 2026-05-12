@@ -109,12 +109,12 @@ class TestK8sConfig(unittest.TestCase):
 
     def test_refresh_token(self):
         with patch('os.environ', {SERVICE_HOST_ENV_NAME: 'a', SERVICE_PORT_ENV_NAME: '1'}), \
-                patch('patroni.dcs.kubernetes.datetime') as mock_datetime, \
+                patch('patroni.dcs.kubernetes.get_system_datetime') as mock_get_sys_dt, \
                 patch('os.path.isfile', Mock(side_effect=[True, True, False, True, True, True])), \
                 patch('builtins.open', Mock(side_effect=[
                     mock_open(read_data='cert')(), mock_open(read_data='a')(),
                     mock_open()(), mock_open(read_data='b')(), mock_open(read_data='c')()])):
-            mock_datetime.datetime.now.side_effect = [datetime.datetime(1, 1, 1, 0, 0, 0)] * 2 + \
+            mock_get_sys_dt.side_effect = [datetime.datetime(1, 1, 1, 0, 0, 0)] * 2 + \
                 [datetime.datetime(1, 1, 1, 0, 0, 1)] * 4 + [datetime.datetime(1, 1, 1, 0, 0, 2)] * 3
             k8s_config.load_incluster_config(token_refresh_interval=datetime.timedelta(milliseconds=100))
             self.assertEqual(k8s_config.headers.get('authorization'), 'Bearer a')
@@ -461,7 +461,7 @@ class TestKubernetesEndpoints(BaseTestKubernetes):
                                   k8s_client.rest.ApiException(409, ''), mock_namespaced_kind()]
         mock_read.return_value.metadata.resource_version = '2'
         mock_time = Mock(side_effect=[0, 0, 100, 200, 0, 0, 0, 0, 0, 100, 200])
-        with patch('time.time', mock_time), patch('time.time_ns', mock_time, create=True):
+        with patch('patroni.utils.get_monotonic_time', mock_time):
             self.assertFalse(self.k.update_leader(cluster, '123'))
             self.assertFalse(self.k.update_leader(cluster, '123'))
         mock_patch.side_effect = k8s_client.rest.ApiException(409, '')

@@ -17,6 +17,7 @@ from dateutil import tz
 from psutil import TimeoutExpired
 
 from .. import global_config, psycopg
+from ..time_utils import get_monotonic_time
 from ..async_executor import CriticalTask
 from ..collections import CaseInsensitiveDict, CaseInsensitiveSet, EMPTY_DICT
 from ..daemon import notify_systemd
@@ -721,10 +722,10 @@ class Postgresql(object):
     def set_state(self, value: PostgresqlState) -> None:
         with self._state_lock:
             self._state = value
-            self._state_entry_timestamp = time.time()
+            self._state_entry_timestamp = get_monotonic_time()
 
     def time_in_state(self) -> float:
-        return time.time() - self._state_entry_timestamp
+        return get_monotonic_time() - self._state_entry_timestamp
 
     def is_starting(self) -> bool:
         return self.state in (PostgresqlState.STARTING, PostgresqlState.BOOTSTRAP_STARTING)
